@@ -1,12 +1,32 @@
 import Fastify from 'fastify';
+import dotenv from 'dotenv';
+import { generateGeminiResponse } from './services/gemini.js';
+
+dotenv.config();
 
 const app = Fastify({
   logger: true
 });
 
-// Rota de teste
+// Endpoint de verificação
 app.get('/health', async (request, reply) => {
   return { status: 'ok', service: 'LLM Gateway', timestamp: new Date() };
+});
+
+// Endpoint principal para enviar perguntas
+app.post('/chat', async (request, reply) => {
+  const { prompt } = request.body as { prompt?: string };
+
+  if (!prompt) {
+    return reply.status(400).send({ error: 'O campo "prompt" é obrigatório.' });
+  }
+
+  try {
+    const response = await generateGeminiResponse(prompt);
+    return { prompt, response, provider: 'gemini-api' };
+  } catch (error) {
+    return reply.status(500).send({ error: 'Erro interno ao processar a requisição com o Gemini.' });
+  }
 });
 
 const start = async () => {
