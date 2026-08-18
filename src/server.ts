@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import dotenv from 'dotenv';
-import { generateGeminiResponse } from './services/gemini.js';
+import { generateResponseWithFallback } from './services/gemini.js';
 
 dotenv.config();
 
@@ -8,12 +8,10 @@ const app = Fastify({
   logger: true
 });
 
-// Endpoint de verificação
-app.get('/health', async (request, reply) => {
+app.get('/health', async () => {
   return { status: 'ok', service: 'LLM Gateway', timestamp: new Date() };
 });
 
-// Endpoint principal para enviar perguntas
 app.post('/chat', async (request, reply) => {
   const { prompt } = request.body as { prompt?: string };
 
@@ -22,10 +20,10 @@ app.post('/chat', async (request, reply) => {
   }
 
   try {
-    const response = await generateGeminiResponse(prompt);
-    return { prompt, response, provider: 'gemini-api' };
+    const { text, provider } = await generateResponseWithFallback(prompt);
+    return { prompt, response: text, provider };
   } catch (error) {
-    return reply.status(500).send({ error: 'Erro interno ao processar a requisição com o Gemini.' });
+    return reply.status(500).send({ error: 'Erro interno ao processar a requisição.' });
   }
 });
 
