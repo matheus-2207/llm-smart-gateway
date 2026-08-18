@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import dotenv from 'dotenv';
 import { processChatRequest } from './services/gemini.js';
 
@@ -27,6 +28,9 @@ app.post('/chat', async (request, reply) => {
 
 const start = async () => {
   try {
+    // Registrar os plugins dentro da função async de startup
+    await app.register(cors, { origin: true });
+    
     await app.listen({ port: 3000, host: '0.0.0.0' });
     console.log('🚀 Gateway rodando em http://localhost:3000');
   } catch (err) {

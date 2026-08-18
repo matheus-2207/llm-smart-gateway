@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Gateway Chat</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #121214; color: #e1e1e6; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    .chat-container { width: 100%; max-width: 600px; height: 80vh; background: #202024; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .header { padding: 16px; background: #121214; border-bottom: 1px solid #29292e; text-align: center; font-weight: bold; color: #8257e5; }
+    .messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .message { max-width: 80%; padding: 12px; border-radius: 8px; line-height: 1.4; word-wrap: break-word; }
+    .user { align-self: flex-end; background: #8257e5; color: #fff; }
+    .bot { align-self: flex-start; background: #29292e; color: #e1e1e6; }
+    .meta { font-size: 0.75rem; color: #a8a8b3; margin-top: 6px; display: block; }
+    .input-area { padding: 16px; background: #121214; border-top: 1px solid #29292e; display: flex; gap: 8px; }
+    input, select, button { padding: 12px; border-radius: 6px; border: 1px solid #29292e; background: #202024; color: #fff; outline: none; }
+    input { flex: 1; }
+    button { background: #8257e5; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #9466ff; }
+  </style>
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="header">⚡ LLM Smart Gateway Chat</div>
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+      <select id="provider">
+        <option value="gemini">Gemini</option>
+        <option value="mock">Mock</option>
+      </select>
+      <input type="text" id="prompt" placeholder="Digite sua mensagem..." onkeydown="if(event.key === 'Enter') enviar()"/>
+      <button onclick="enviar()">Enviar</button>
+    </div>
+  </div>
+
+  <script>
+    async function enviar() {
+      const input = document.getElementById('prompt');
+      const providerSelect = document.getElementById('provider');
+      const messagesDiv = document.getElementById('messages');
+      
+      const prompt = input.value.trim();
+      if (!prompt) return;
+
+      // Adiciona mensagem do usuário na tela
+      messagesDiv.innerHTML += `<div class="message user">${prompt}</div>`;
+      input.value = '';
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      // Mensagem temporária de "carregando"
+      const loadingId = 'loading-' + Date.now();
+      messagesDiv.innerHTML += `<div class="message bot" id="${loadingId}">Pensando...</div>`;
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      try {
+        const response = await fetch('http://localhost:3000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, provider: providerSelect.value })
+        });
+
+        const data = await response.json();
+        const loadingElement = document.getElementById(loadingId);
+
+        // Atualiza a resposta na tela com metadata (Provedor e Cache)
+        loadingElement.innerHTML = `
+          ${data.response}
+          <span class="meta">Provedor: <b>${data.provider}</b> | Cache: <b>${data.cached ? '⚡ SIM' : '❌ NÃO'}</b></span>
+        `;
+      } catch (err) {
+        document.getElementById(loadingId).innerText = 'Erro ao se comunicar com o gateway.';
+      }
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
