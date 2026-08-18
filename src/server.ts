@@ -18,8 +18,8 @@ app.post('/chat', async (request, reply) => {
   }
 
   try {
-    const { text, providerUsed } = await processChatRequest(prompt, provider);
-    return { prompt, response: text, provider: providerUsed };
+    const { text, providerUsed, cached } = await processChatRequest(prompt, provider);
+    return { prompt, response: text, provider: providerUsed, cached };
   } catch (error) {
     return reply.status(500).send({ error: 'Erro interno ao processar a requisição.' });
   }

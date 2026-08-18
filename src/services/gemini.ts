@@ -5,6 +5,9 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+// Armazenamento do cache em memória (Prompt -> Resposta)
+const responseCache = new Map<string, { text: string; providerUsed: string }>();
+
 async function callGeminiApi(prompt: string): Promise<string> {
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   const result = await model.generateContent(prompt);
@@ -17,27 +20,39 @@ async function callMockProvider(prompt: string): Promise<string> {
   return `[MOCK RESPONSE]: Resposta simulada para: "${prompt}"`;
 }
 
-/**
- * Processa a requisição com base no provider solicitado
- */
 export async function processChatRequest(
   prompt: string,
   requestedProvider: string = 'gemini'
-): Promise<{ text: string; providerUsed: string }> {
-  
-  // Se o cliente solicitar explicitamente 'mock'
-  if (requestedProvider.toLowerCase() === 'mock') {
-    const text = await callMockProvider(prompt);
-    return { text, providerUsed: 'mock' };
+): Promise<{ text: string; providerUsed: string; cached: boolean }> {
+  const cacheKey = `${requestedProvider.toLowerCase()}:${prompt.trim().toLowerCase()}`;
+
+  // 1. Verifica se já existe em cache
+  if (responseCache.has(cacheKey)) {
+    const cachedData = responseCache.get(cacheKey)!;
+    return { ...cachedData, cached: true };
   }
 
-  // Tenta o provedor Gemini
-  try {
-    const text = await callGeminiApi(prompt);
-    return { text, providerUsed: 'gemini-api' };
-  } catch (error) {
-    console.warn(`⚠️ Falha no provedor '${requestedProvider}'. Redirecionando para mock-fallback...`);
-    const text = await callMockProvider(prompt);
-    return { text, providerUsed: 'mock-fallback' };
+  let text = '';
+  let providerUsed = requestedProvider;
+
+  // 2. Processa via Mock ou Gemini com Fallback
+  if (requestedProvider.toLowerCase() === 'mock') {
+    text = await callMockProvider(prompt);
+    providerUsed = 'mock';
+  } else {
+    try {
+      text = await callGeminiApi(prompt);
+      providerUsed = 'gemini-api';
+    } catch (error) {
+      console.warn(`⚠️ Falha no provedor '${requestedProvider}'. Redirecionando para mock-fallback...`);
+      text = await callMockProvider(prompt);
+      providerUsed = 'mock-fallback';
+    }
   }
+
+  // 3. Salva o resultado no cache
+  const result = { text, providerUsed };
+  responseCache.set(cacheKey, result);
+
+  return { ...result, cached: false };
 }
