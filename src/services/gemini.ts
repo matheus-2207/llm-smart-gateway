@@ -5,9 +5,6 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-/**
- * Tenta chamada à API oficial do Gemini
- */
 async function callGeminiApi(prompt: string): Promise<string> {
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   const result = await model.generateContent(prompt);
@@ -15,27 +12,32 @@ async function callGeminiApi(prompt: string): Promise<string> {
   return response.text();
 }
 
-/**
- * Resposta simulada (Fallback) para uso offline / rede corporativa
- */
 async function callMockProvider(prompt: string): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  return `[MOCK FALLBACK]: Resposta simulada para a pergunta: "${prompt}"`;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  return `[MOCK RESPONSE]: Resposta simulada para: "${prompt}"`;
 }
 
 /**
- * Função principal com Fallback Automático
+ * Processa a requisição com base no provider solicitado
  */
-export async function generateResponseWithFallback(prompt: string): Promise<{ text: string; provider: string }> {
-  try {
-    // 1ª Tentativa: API Real do Gemini
-    const text = await callGeminiApi(prompt);
-    return { text, provider: 'gemini-api' };
-  } catch (error) {
-    console.warn('⚠️ Falha na API do Gemini. Acionando Fallback para Mock local...');
-    
-    // 2ª Tentativa: Mock Provider
+export async function processChatRequest(
+  prompt: string,
+  requestedProvider: string = 'gemini'
+): Promise<{ text: string; providerUsed: string }> {
+  
+  // Se o cliente solicitar explicitamente 'mock'
+  if (requestedProvider.toLowerCase() === 'mock') {
     const text = await callMockProvider(prompt);
-    return { text, provider: 'mock-fallback' };
+    return { text, providerUsed: 'mock' };
+  }
+
+  // Tenta o provedor Gemini
+  try {
+    const text = await callGeminiApi(prompt);
+    return { text, providerUsed: 'gemini-api' };
+  } catch (error) {
+    console.warn(`⚠️ Falha no provedor '${requestedProvider}'. Redirecionando para mock-fallback...`);
+    const text = await callMockProvider(prompt);
+    return { text, providerUsed: 'mock-fallback' };
   }
 }
